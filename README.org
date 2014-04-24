@@ -1,0 +1,161 @@
+* Overview
+I can't believe it's not a struct! This library provides a
+mechanism for defining memory-efficient, pass-by-value bundles
+of integer and floating-point values. This is done using [[http://docs.scala-lang.org/overviews/core/value-classes.html][value
+classes]] and [[http://docs.scala-lang.org/overviews/macros/annotations.html][macro annotations]].
+
+Memory is saved by representing struct values as primitive JVM
+types. Field values are bit-packed into these types. This means:
+ - notastruct types are 8, 16, 32, or 64 bits in width (the
+   widths of JVM primitive types).
+ - Values can be stack-allocated.
+ - Users of notastruct types pay the storage cost of the type
+   and nothing but the type --- not the type plus a 4- or 8-byte
+   pointer to it.
+
+* Usage
+
+#+BEGIN_SRC scala
+  import notastruct.primitive._
+  import notastruct.struct
+
+  // Generates a value class wrapping a Short (16 bits).
+  @struct class Pair(x: u8, y: u8)
+
+  // Generates a value class wrapping a Long (64 bits). Note that
+  // f32 is synonymous with Float.
+  @struct class Coordinate(x: f32, y: f32)
+
+  // Generates a value class wrapping an Int (32 bits). The upper
+  // 9 bits are unused.
+  @struct class ChartCell(offset: u8, width: u8, symbol: u7)
+
+  // Together with the Tree class, provides a packed
+  // representation of a binary tree. The auto-generated class
+  // TreeNode.PackedSeq provides a memory-efficient IndexedSeq
+  // implementation that refrains from boxing the struct values.
+  @struct class TreeNode(parentOffset: u8, dataOffset: u8, leftChildOffset: u8, rightChildOffset: u8) {
+    def data[T](implicit tree: Tree[T]) = tree.data(dataOffset.toValue)
+
+    def parent(implicit tree: Tree[_]) =
+      if (parentOffset.toValue == 0) {
+        None
+      } else {
+        tree.nodes(parentOffset.toValue - 1)
+      }
+
+    def leftChild(implicit tree: Tree[_]) =
+      if (leftChildOffset.toValue == 0) {
+        None
+      } else {
+        tree.nodes(leftChildOffset.toValue - 1)
+      }
+
+    def rightChild(implicit tree: Tree[_]) =
+      if (rightChildOffset.toValue == 0) {
+        None
+      } else {
+        tree.nodes(rightChildOffset.toValue - 1)
+      }
+  }
+
+  class Tree[T](val nodes: TreeNode.PackedSeq, val data: Array[T]) {
+    def root = nodes(0)
+  }
+#+END_SRC
+
+** Caveats
+The limitations of value classes apply. In particular,
+fully-fledged, heap-allocated objects will be generated for
+arrays or naively implemented generic collections of notastruct
+types.
+
+Efforts are taken to allocate only the space required for a
+given type or operation, but, in the interest of full
+disclosure, it is necessary to admit that complications arise as
+a result of how the JVM handles operations on small primitive
+types --- =Short= and =Byte= values are promoted to =Int= when
+bitwise and arithmetic operations are performed on them. As a
+result, direct operations on small struct fields may temporarily
+lead to a larger memory footprint than intended.
+
+* Platform
+** Runtime
+ - Java 8 :: Due to the use of new methods like
+             [[http://docs.oracle.com/javase/8/docs/api/java/lang/Byte.html#toUnsignedInt-byte-][java.lang.Byte.toUnsignedInt]], the JVM runtime must
+             be version 8 or later.
+** Build
+ - [[http://docs.scala-lang.org/overviews/macros/paradise.html][Macro Paradise]] 2.0 :: The use of macro annotations
+      necessitates a recent version of Macro Paradise.
+** Hacking
+ - SBT 0.13.2 :: Earlier versions may work, but the build is
+                 currently configured for SBT 0.13.2.
+ - Scala 2.11 :: The use of [[http://docs.scala-lang.org/overviews/macros/bundles.html][macro bundles]] necessitates building
+                 with Scala 2.11 or later.
+
+* Primitive type wrappers
+Value classes are provided for type-safe, lightweight
+representations of signed and unsigned integer types. For many
+uses, the overhead of using these wrapper classes will be the
+same as using a raw primitive type. See [[http://docs.scala-lang.org/overviews/core/value-classes.html][documentation on value
+classes]] for an explanation of this behavior.
+
+These type wrappers represent integral values, using a
+bit-shifting scheme to pack values into the lower-order bits of
+JVM primitive types. Signed values up to 64 bits in width are
+provided, while unsigned values may be up to 63 bits in width
+(due to the lack of an unsigned 64-bit primitive type on the
+JVM). A type wrapper wraps around a single primitive value,
+which will be of the smallest type possible for representing the
+full range of values.
+
+** Creating type wrapper instances
+Type wrappers can be created safely from a primitive value
+methods on their companion object's =apply= method, which takes
+a value and converts it according to overflow/underflow
+semantics that make it fit within the valid range for the type.
+
+If a primitive value is already known to be packed into the
+correct format, a type wrapper may be instantiated directly with
+=new=.
+
+If the low-order bits of a wider primitive type are known to be
+packed into the correct format, a type wrapper may be
+instantiated with the companion object's =fromPacked= method.
+
+*** Overflow/underflow semantics
+When creating instances of a primitive wrapper type from its
+companion object's =apply= method, the value passed to =apply=
+will be interpreted modulo the range of valid values for the
+wrapper type. The following equalities illustrate this:
+
+#+BEGIN_SRC scala
+  s5(16) = -16
+  u4(18) = 2
+  u8(-1) = 255
+  s12(-5000) = -904
+  u12(-5000) = 3192
+#+END_SRC
+
+** Representation details
+Primitive wrapper types are defined with three different
+representations in mind:
+ - The /value/ is the native JVM 2's-complement representation of
+   an actual numeric value.
+ - The /containing/ representation is the type wrapper's
+   internal representation. It use the narrowest primitive type
+   that is at least as wide as the range the type wrapper
+   represents. This representation only uses the lowest-order
+   bytes in the wrapped native type; higher-order bytes (such as
+   the highest 4 bytes in a =Short= that encodes a 12-bit value)
+   are 0.
+ - The /packed/ representation is like the containing
+   representation, but it may be held in a wider primitive
+   type. This representation exists because bitwise and
+   arithmetic operations in the JVM implicitly promote values to
+   =Int= or =Long=, and this conversion will do funny things to
+   the containing representation if the sign bit is set. The
+   packed representation exists to provide a protocol for
+   mapping between the containing representation and the
+   low-order bytes of a wider type.
+
