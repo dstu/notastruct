@@ -10,7 +10,7 @@ class unsigned extends StaticAnnotation {
 class UnsignedImpl(val c: Context) {
   import c.universe._
 
-  private[this] val NAME_PATTERN = raw"u([1-9][0-9]*)".r
+  val NAME_PATTERN = raw"u([1-9][0-9]*)".r
 
   case class TypeFields(max: c.Tree,
                         valueType: c.Tree,
@@ -167,7 +167,7 @@ class signed extends StaticAnnotation {
 class SignedImpl(val c: Context) {
   import c.universe._
 
-  private[this] val NAME_PATTERN = raw"s([1-9][0-9]*)".r
+  val NAME_PATTERN = raw"s([1-9][0-9]*)".r
 
   case class TypeFields(min: c.Tree,
                         max: c.Tree,
