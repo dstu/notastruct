@@ -10,6 +10,6 @@ trait Packable[T, @specialized(Long, Float, Int, Short, Byte) V, @specialized(Lo
   def maxValue(implicit attributes: PackableAttributes[T]): ValueType
   def pack(x: ValueType)(implicit attributes: PackableAttributes[T]) : PackedType
   def unpack(x: PackedType)(implicit attributes: PackableAttributes[T]): ValueType
-  def promotedPack(x: ValueType)(implicit attributes: PackableAttributes[T]): PromotedType
-  def promotedUnpack(x: PromotedType)(implicit attributes: PackableAttributes[T]): ValueType
+  def promote(x: PackedType)(implicit attributes: PackableAttributes[T]): PromotedType
+  def demote(x: PromotedType)(implicit attributes: PackableAttributes[T]): PackedType
 }

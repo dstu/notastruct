@@ -1,6 +1,6 @@
 package notastruct.model
 
-trait PackableAttributes[@specialized(Long, Float, Int, Short, Byte) T] {
+trait PackableAttributes[T] {
   type FormatType = T
   def width: Int
 }
