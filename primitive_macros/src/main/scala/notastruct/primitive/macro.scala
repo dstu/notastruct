@@ -14,13 +14,7 @@ class UnsignedImpl(val c: Context) {
 
   case class TypeFields(max: c.Tree,
                         valueType: c.Tree,
-                        containingType: c.Tree,
-                        valueToContaining: TermName => c.Tree,
-                        containingToValue: TermName => c.Tree,
-                        packedIntToContaining: Option[TermName => c.Tree],
-                        packedLongToContaining: TermName => c.Tree,
-                        containingToPackedInt: Option[TermName => c.Tree],
-                        containingToPackedLong: TermName => c.Tree)
+                        containingType: c.Tree)
 
   def typeFields(width: Int): Option[TypeFields] = {
     val max = (1L << width) - 1
@@ -31,73 +25,31 @@ class UnsignedImpl(val c: Context) {
     } else if (width > 32) {
       Some(TypeFields(max=q"$max",
                       valueType=tq"Long",
-                      containingType=tq"Long",
-                      valueToContaining=(t: TermName) => q"$t & $maskLong",
-                      containingToValue=(t: TermName) => q"$t",
-                      packedIntToContaining=None,
-                      packedLongToContaining=(t: TermName) => q"$t & $maskLong",
-                      containingToPackedInt=None,
-                      containingToPackedLong=(t: TermName) => q"$t"))
+                      containingType=tq"Long"))
     } else if (width == 32) {
       Some(TypeFields(max=q"$max",
                       valueType=tq"Long",
-                      containingType=tq"Int",
-                      valueToContaining=(t: TermName) => q"($t & $maskLong).asInstanceOf[Int]",
-                      containingToValue=(t: TermName) => q"_root_.java.lang.Integer.toUnsignedLong($t)",
-                      packedIntToContaining=Some((t: TermName) => q"$t & $maskInt"),
-                      packedLongToContaining=(t: TermName) => q"($t & $maskLong).asInstanceOf[Int]",
-                      containingToPackedInt=Some((t: TermName) => q"$t"),
-                      containingToPackedLong=(t: TermName) => q"$t.asInstanceOf[Long]"))
+                      containingType=tq"Int"))
     } else if (width > 16) {
       Some(TypeFields(max=q"${max.toInt}",
                       valueType=tq"Int",
-                      containingType=tq"Int",
-                      valueToContaining=(t: TermName) => q"$t & $maskInt",
-                      containingToValue=(t: TermName) => q"$t",
-                      packedIntToContaining=Some((t: TermName) => q"$t & $maskInt"),
-                      packedLongToContaining=(t: TermName) => q"($t & $maskLong).asInstanceOf[Int]",
-                      containingToPackedInt=Some((t: TermName) => q"$t"),
-                      containingToPackedLong=(t: TermName) => q"$t.asInstanceOf[Long]"))
+                      containingType=tq"Int"))
     } else if (width == 16) {
       Some(TypeFields(max=q"${max.toInt}",
                       valueType=tq"Int",
-                      containingType=tq"Short",
-                      valueToContaining=(t: TermName) => q"$t.asInstanceOf[Short]",
-                      containingToValue=(t: TermName) => q"_root_.java.lang.Short.toUnsignedInt($t)",
-                      packedIntToContaining=Some((t: TermName) => q"($t & $maskInt).asInstanceOf[Short]"),
-                      packedLongToContaining=(t: TermName) => q"($t & $maskLong).asInstanceOf[Short]",
-                      containingToPackedInt=Some((t: TermName) => q"_root_.java.lang.Short.toUnsignedInt($t)"),
-                      containingToPackedLong=(t: TermName) => q"_root_.java.lang.Short.toUnsignedLong($t)"))
+                      containingType=tq"Short"))
     } else if (width > 8) {
       Some(TypeFields(max=q"${max.toShort}",
                       valueType=tq"Short",
-                      containingType=tq"Short",
-                      valueToContaining=(t: TermName) => q"($t & $maskInt).asInstanceOf[Short]",
-                      containingToValue=(t: TermName) => q"$t",
-                      packedIntToContaining=Some((t: TermName) => q"($t & $maskInt).asInstanceOf[Short]"),
-                      packedLongToContaining=(t: TermName) => q"($t & $maskLong).asInstanceOf[Short]",
-                      containingToPackedInt=Some((t: TermName) => q"$t.asInstanceOf[Int]"),
-                      containingToPackedLong=(t: TermName) => q"$t.asInstanceOf[Long]"))
+                      containingType=tq"Short"))
     } else if (width == 8) {
       Some(TypeFields(max=q"${max.toShort}",
                       valueType=tq"Short",
-                      containingType=tq"Byte",
-                      valueToContaining=(t: TermName) => q"($t & $maskInt).asInstanceOf[Byte]",
-                      containingToValue=(t: TermName) => q"_root_.java.lang.Byte.toUnsignedInt($t).asInstanceOf[Short]",
-                      packedIntToContaining=Some((t: TermName) => q"($t & $maskInt).asInstanceOf[Byte]"),
-                      packedLongToContaining=(t: TermName) => q"($t & $maskLong).asInstanceOf[Byte]",
-                      containingToPackedInt=Some((t: TermName) => q"_root_.java.lang.Byte.toUnsignedInt($t)"),
-                      containingToPackedLong=(t: TermName) => q"_root_.java.lang.Byte.toUnsignedLong($t)"))
+                      containingType=tq"Byte"))
     } else if (width > 1) {
       Some(TypeFields(max=q"${max.toByte}",
                       valueType=tq"Byte",
-                      containingType=tq"Byte",
-                      valueToContaining=(t: TermName) => q"($t & $maskInt).asInstanceOf[Byte]",
-                      containingToValue=(t: TermName) => q"$t",
-                      packedIntToContaining=Some((t: TermName) => q"($t & $maskInt).asInstanceOf[Byte]"),
-                      packedLongToContaining=(t: TermName) => q"($t & $maskLong).asInstanceOf[Byte]",
-                      containingToPackedInt=Some((t: TermName) => q"$t & $maskInt"),
-                      containingToPackedLong=(t: TermName) => q"$t & $maskLong"))
+                      containingType=tq"Byte"))
     } else {
       None
     }
@@ -124,35 +76,20 @@ class UnsignedImpl(val c: Context) {
               val companionName = TermName(className.toString)
               typeFields(width) match {
                 case Some(fields) => {
-                  val classBody = Seq(q"""def toValue: ${fields.valueType} = ${fields.containingToValue(TermName("primitiveBits"))}""",
+                  val classBody = Seq(q"""def toValue: ${fields.valueType} = ${TermName(className.toString)}.converter.convert(primitiveBits)""",
                                       q"""override def toString = toValue.toString""")
-                  val companionBody = Seq(q"""
-implicit object HasAttributes extends _root_.notastruct.model.PackableAttributes[$className] {
+                  val companionBody = Seq(q"""import _root_.notastruct.model.BitConverters._""",
+                                          q"""private val converter = implicitly[_root_.notastruct.model.BitConverter[${fields.containingType}, ${fields.valueType}]]""",
+                                          q"""
+implicit object ${TermName(className.toString + "HasAttributes")} extends _root_.notastruct.model.PackableAttributes[$className] {
   override def width: Int = $width
 }
 """,
-                                          (fields.packedIntToContaining, fields.containingToPackedInt) match {
-                                            case (Some(packedIntToContaining), Some(containingToPackedInt)) => 
-                                              q"""
-implicit object IntPackable extends _root_.notastruct.model.Packable[$className, ${fields.valueType}, ${fields.containingType}, Int] {
-  override def pack(x: ValueType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): PackedType = ${fields.valueToContaining(TermName("x"))}
-  override def unpack(x: PackedType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.containingToValue(TermName("x"))}
-  override def promote(x: PackedType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): PromotedType = ${containingToPackedInt(TermName("x"))}
-  override def demote(x: PromotedType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): PackedType = ${packedIntToContaining(TermName("x"))}
-  override def minValue(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = 0
-  override def maxValue(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.max}
-}
-"""
-                                            case _ => q""
-                                          },
-                                          q"""
-implicit object LongPackable extends _root_.notastruct.model.Packable[$className, ${fields.valueType}, ${fields.containingType}, Long] {
-  override def pack(x: ValueType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): PackedType = ${fields.valueToContaining(TermName("x"))}
-  override def unpack(x: PackedType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.containingToValue(TermName("x"))}
-  override def promote(x: PackedType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): PromotedType = ${fields.containingToPackedLong(TermName("x"))}
-  override def demote(x: PromotedType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): PackedType = ${fields.packedLongToContaining(TermName("x"))}
-  override def minValue(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = 0
-  override def maxValue(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.max}
+q"""
+implicit object ${TermName(className.toString + "IsPackable")} extends _root_.notastruct.model.Packable[$className, ${fields.valueType}, ${fields.containingType}] {
+  import notastruct.model._
+  override def minValue(implicit attributes: PackableAttributes[$className]) = 0
+  override def maxValue(implicit attributes: PackableAttributes[$className]) = ${fields.max}
 }
 """)
                   q"""
@@ -190,13 +127,7 @@ class SignedImpl(val c: Context) {
 
   case class TypeFields(min: c.Tree,
                         max: c.Tree,
-                        containingType: c.Tree,
-                        valueToContaining: TermName => c.Tree,
-                        containingToValue: TermName => c.Tree,
-                        packedIntToContaining: Option[TermName => c.Tree],
-                        packedLongToContaining: TermName => c.Tree,
-                        containingToPackedInt: Option[TermName => c.Tree],
-                        containingToPackedLong: TermName => c.Tree)
+                        containingType: c.Tree)
 
   def typeFields(width: Int): Option[TypeFields] = {
     val min = -(1L << (width - 1))
@@ -208,83 +139,35 @@ class SignedImpl(val c: Context) {
     } else if (width == 64) {
       Some(TypeFields(min=q"$min",
                       max=q"$max",
-                      containingType=tq"Long",
-                      valueToContaining=(t: TermName) => q"$t",
-                      containingToValue=(t: TermName) => q"$t",
-                      packedIntToContaining=None,
-                      packedLongToContaining=(t: TermName) => q"$t",
-                      containingToPackedInt=None,
-                      containingToPackedLong=(t: TermName) => q"$t"))
+                      containingType=tq"Long"))
     } else if (width > 32) {
       Some(TypeFields(min=q"$min",
                       max=q"$max",
-                      containingType=tq"Long",
-                      valueToContaining=(t: TermName) => q"($t - $min) & $maskLong",
-                      containingToValue=(t: TermName) => q"$t + $min",
-                      packedIntToContaining=None,
-                      packedLongToContaining=(t: TermName) => q"$t & $maskLong",
-                      containingToPackedInt=None,
-                      containingToPackedLong=(t: TermName) => q"$t"))
+                      containingType=tq"Long"))
     } else if (width == 32) {
       Some(TypeFields(min=q"$min.toInt",
                       max=q"$max.toInt",
-                      containingType=tq"Int",
-                      valueToContaining=(t: TermName) => q"$t",
-                      containingToValue=(t: TermName) => q"$t",
-                      packedIntToContaining=Some((t: TermName) => q"$t"),
-                      packedLongToContaining=(t: TermName) => q"$t.asInstanceOf[Int]",
-                      containingToPackedInt=Some((t: TermName) => q"$t"),
-                      containingToPackedLong=(t: TermName) => q"$t.asInstanceOf[Long]"))
+                      containingType=tq"Int"))
     } else if (width > 16) {
       Some(TypeFields(min=q"${min.toInt}",
                       max=q"${max.toInt}",
-                      containingType=tq"Int",
-                      valueToContaining=(t: TermName) => q"($t - ${min.toInt}) & $maskInt",
-                      containingToValue=(t: TermName) => q"$t + ${min.toInt}",
-                      packedIntToContaining=Some((t: TermName) => q"$t & $maskInt"),
-                      packedLongToContaining=(t: TermName) => q"($t & $maskLong).asInstanceOf[Int]",
-                      containingToPackedInt=Some((t: TermName) => q"$t"),
-                      containingToPackedLong=(t: TermName) => q"$t.asInstanceOf[Long]"))
+                      containingType=tq"Int"))
     } else if (width == 16) {
       Some(TypeFields(min=q"${min.toShort}",
                       max=q"${max.toShort}",
-                      containingType=tq"Short",
-                      valueToContaining=(t: TermName) => q"$t",
-                      containingToValue=(t: TermName) => q"$t",
-                      packedIntToContaining=Some((t: TermName) => q"$t.asInstanceOf[Short]"),
-                      packedLongToContaining=(t: TermName) => q"$t.asInstanceOf[Short]",
-                      containingToPackedInt=Some((t: TermName) => q"_root_.java.lang.Short.toUnsignedInt($t)"),
-                      containingToPackedLong=(t: TermName) => q"_root_.java.lang.Short.toUnsignedLong($t)"))
+                      containingType=tq"Short"))
     } else if (width > 8) {
       Some(TypeFields(min=q"${min.toShort}",
                       max=q"${max.toShort}",
-                      containingType=tq"Short",
-                      valueToContaining=(t: TermName) => q"(($t - ${min.toInt}) & $maskInt).asInstanceOf[Short]",
-                      containingToValue=(t: TermName) => q"($t + ${min.toInt}).asInstanceOf[Short]",
-                      packedIntToContaining=Some((t: TermName) => q"($t & $maskInt).asInstanceOf[Short]"),
-                      packedLongToContaining=(t: TermName) => q"($t & $maskLong).asInstanceOf[Short]",
-                      containingToPackedInt=Some((t: TermName) => q"_root_.java.lang.Short.toUnsignedInt($t)"),
-                      containingToPackedLong=(t: TermName) => q"_root_.java.lang.Short.toUnsignedLong($t)"))
+                      containingType=tq"Short"))
     } else if (width == 8) {
       Some(TypeFields(min=q"${min.toByte}",
                       max=q"${max.toByte}",
-                      containingType=tq"Byte",
-                      valueToContaining=(t: TermName) => q"$t",
-                      containingToValue=(t: TermName) => q"$t",
-                      packedIntToContaining=Some((t: TermName) => q"($t & $maskInt).asInstanceOf[Byte]"),
-                      packedLongToContaining=(t: TermName) => q"($t & $maskLong).asInstanceOf[Byte]",
-                      containingToPackedInt=Some((t: TermName) => q"_root_.java.lang.Byte.toUnsignedInt($t)"),
-                      containingToPackedLong=(t: TermName) => q"_root_.java.lang.Byte.toUnsignedLong($t)"))
+                      containingType=tq"Byte"))
     } else if (width > 1) {
       Some(TypeFields(max=q"${max.toByte}",
                       min=q"${min.toByte}",
-                      containingType=tq"Byte",
-                      valueToContaining=(t: TermName) => q"(($t - ${min.toInt}) & $maskInt).asInstanceOf[Byte]",
-                      containingToValue=(t: TermName) => q"($t + ${min.toInt}).asInstanceOf[Byte]",
-                      packedIntToContaining=Some((t: TermName) => q"($t & $maskInt).asInstanceOf[Byte]"),
-                      packedLongToContaining=(t: TermName) => q"($t & $maskLong).asInstanceOf[Byte]",
-                      containingToPackedInt=Some((t: TermName) => q"_root_.java.lang.Byte.toUnsignedInt($t)"),
-                      containingToPackedLong=(t: TermName) => q"_root_.java.lang.Byte.toUnsignedLong($t)"))
+                      containingType=tq"Byte"))
     } else {
       None
     }
@@ -311,33 +194,16 @@ class SignedImpl(val c: Context) {
               val companionName = TermName(className.toString)
               typeFields(width) match {
                 case Some(fields) => {
-                  val classBody = Seq(q"""def toValue: ${fields.containingType} = ${fields.containingToValue(TermName("primitiveBits"))}""",
+                  val classBody = Seq(q"""def toValue: ${fields.containingType} = primitiveBits""",
                                       q"""override def toString = toValue.toString""")
                   val companionBody = Seq(q"""
-implicit object HasAttributes extends _root_.notastruct.model.PackableAttributes[$className] {
+implicit object ${TermName(className.toString + "HasAttributes")} extends _root_.notastruct.model.PackableAttributes[$className] {
   override def width: Int = $width
 }
 """,
-                                          (fields.packedIntToContaining, fields.containingToPackedInt) match {
-                                            case (Some(packedIntToContaining), Some(containingToPackedInt)) =>
-                                              q"""
-implicit object IntPackable extends _root_.notastruct.model.Packable[$className, ${fields.containingType}, ${fields.containingType}, Int] {
-  override def pack(x: ValueType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): PackedType = ${fields.valueToContaining(TermName("x"))}
-  override def unpack(x: PackedType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.containingToValue(TermName("x"))}
-  override def promote(x: ValueType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): PromotedType = ${containingToPackedInt(TermName("x"))}
-  override def demote(x: PromotedType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${packedIntToContaining(TermName("x"))}
-  override def minValue(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.min}
-  override def maxValue(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.max}
-}
-"""
-                                            case _ => q""
-                                          },
                                           q"""
-implicit object LongPackable extends _root_.notastruct.model.Packable[$className, ${fields.containingType}, ${fields.containingType}, Long] {
-  override def pack(x: ValueType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): PackedType = ${fields.valueToContaining(TermName("x"))}
-  override def unpack(x: PackedType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.containingToValue(TermName("x"))}
-  override def promote(x: ValueType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): PromotedType = ${fields.containingToPackedLong(TermName("x"))}
-  override def demote(x: PromotedType)(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.packedLongToContaining(TermName("x"))}
+implicit object ${TermName(className.toString + "As" + fields.containingType + "Is" + fields.containingType + "Packable")} extends _root_.notastruct.model.Packable[$className, ${fields.containingType}, ${fields.containingType}] {
+  import notastruct.model._
   override def minValue(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.min}
   override def maxValue(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.max}
 }
