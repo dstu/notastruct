@@ -1,71 +1,45 @@
 package notastruct.model
 
-trait BitConverter[@specialized(Long, Int, Short, Byte) F, @specialized(Long, Int, Short, Byte) T] {
+import scala.reflect.macros.blackbox.Context
+
+trait BitConverter[F, T] {
   def convert(x: F): T
 }
 
 object BitConverters {
-  implicit object Long2LongConverter extends BitConverter[Long, Long] {
-    override def convert(x: Long): Long = x
-  }
+  def convert[F, T](f: F): T = macro BitConverters.convertImpl[F, T]
 
-  implicit object Long2IntConverter extends BitConverter[Long, Int] {
-    override def convert(x: Long): Int = x.asInstanceOf[Int]
-  }
-
-  implicit object Long2ShortConverter extends BitConverter[Long, Short] {
-    override def convert(x: Long): Short = x.asInstanceOf[Short]
-  }
-
-  implicit object Long2BitConverter extends BitConverter[Long, Byte] {
-    override def convert(x: Long): Byte = x.asInstanceOf[Byte]
-  }
-
-  implicit object Int2LongConverter extends BitConverter[Int, Long] {
-    override def convert(x: Int): Long = java.lang.Integer.toUnsignedLong(x)
-  }
-
-  implicit object Int2IntConverter extends BitConverter[Int, Int] {
-    override def convert(x: Int): Int = x
-  }
-
-  implicit object Int2ShortConverter extends BitConverter[Int, Short] {
-    override def convert(x: Int): Short = x.asInstanceOf[Short]
-  }
-
-  implicit object Int2BitConverter extends BitConverter[Int, Byte] {
-    override def convert(x: Int): Byte = x.asInstanceOf[Byte]
-  }
-
-  implicit object Short2LongConverter extends BitConverter[Short, Long] {
-    override def convert(x: Short): Long = java.lang.Short.toUnsignedLong(x)
-  }
-
-  implicit object Short2IntConverter extends BitConverter[Short, Int] {
-    override def convert(x: Short): Int = java.lang.Short.toUnsignedInt(x)
-  }
-
-  implicit object Short2ShortConverter extends BitConverter[Short, Short] {
-    override def convert(x: Short): Short = x
-  }
-
-  implicit object Short2BitConverter extends BitConverter[Short, Byte] {
-    override def convert(x: Short): Byte = x.asInstanceOf[Byte]
-  }
-
-  implicit object Byte2LongConverter extends BitConverter[Byte, Long] {
-    override def convert(x: Byte): Long = java.lang.Byte.toUnsignedLong(x)
-  }
-
-  implicit object Byte2IntConverter extends BitConverter[Byte, Int] {
-    override def convert(x: Byte): Int = java.lang.Byte.toUnsignedInt(x)
-  }
-
-  implicit object Byte2ShortConverter extends BitConverter[Byte, Short] {
-    override def convert(x: Byte): Short = implicitly[BitConverter[Int, Short]].convert(implicitly[BitConverter[Byte, Int]].convert(x))
-  }
-
-  implicit object Byte2BitConverter extends BitConverter[Byte, Byte] {
-    override def convert(x: Byte): Byte = x
+  def convertImpl[F: c.WeakTypeTag, T: c.WeakTypeTag](c: Context)(f: c.Expr[F]): c.Expr[T] = {
+    import c.universe._
+    val fType = weakTypeTag[F].tpe
+    val tType = weakTypeTag[T].tpe
+    if (fType == tType) {
+      c.Expr(q"$f")
+    } else {
+      val LongType = typeTag[Long].tpe
+      val FloatType = typeTag[Float].tpe
+      val IntType = typeTag[Int].tpe
+      val ShortType = typeTag[Short].tpe
+      val ByteType = typeTag[Byte].tpe
+      (fType, tType) match {
+        case (LongType, FloatType) => c.Expr(q"_root_.java.lang.Float.intBitsToFloat($f.asInstanceOf[Int])")
+        case (LongType, IntType) => c.Expr(q"$f.asInstanceOf[Int]")
+        case (LongType, ShortType) => c.Expr(q"$f.asInstanceOf[Short]")
+        case (LongType, ByteType) => c.Expr(q"$f.asInstanceOf[Byte]")
+        case (FloatType, LongType) => c.Expr(q"_root_.java.lang.Integer.toUnsignedLong(_root_.java.lang.Float.floatToRawIntBits($f))")
+        case (FloatType, IntType) => c.Expr(q"_root_.java.lang.Float.floatToRawIntBits($f)")
+        case (IntType, LongType) => c.Expr(q"_root_.java.lang.Integer.toUnsignedLong($f)")
+        case (IntType, FloatType) => c.Expr(q"_root_.java.lang.Float.intBitsToFloat($f)")
+        case (IntType, ShortType) => c.Expr(q"$f.asInstanceOf[Short]")
+        case (IntType, ByteType) => c.Expr(q"$f.asInstanceOf[Byte]")
+        case (ShortType, LongType) => c.Expr(q"_root_.java.lang.Short.toUnsignedLong($f)")
+        case (ShortType, IntType) => c.Expr(q"_root_.java.lang.Short.toUnsignedInt($f)")
+        case (ShortType, ByteType) => c.Expr(q"$f.asInstanceOf[Byte]")
+        case (ByteType, LongType) => c.Expr(q"_root_.java.lang.Byte.toUnsignedLong($f)")
+        case (ByteType, IntType) => c.Expr(q"_root_.java.lang.Byte.toUnsignedInt($f)")
+        case (ByteType, ShortType) => c.Expr(q"_root_.java.lang.Byte.toUnsignedInt($f).asInstanceOf[Short]")
+        case _ => c.Expr(q"implicitly[_root_.notastruct.model.BitConverter[$fType, $tType]].convert($f)")
+      }
+    }
   }
 }

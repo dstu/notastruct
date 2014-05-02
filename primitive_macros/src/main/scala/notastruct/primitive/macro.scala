@@ -76,29 +76,22 @@ class UnsignedImpl(val c: Context) {
               val companionName = TermName(className.toString)
               typeFields(width) match {
                 case Some(fields) => {
-                  val classBody = Seq(q"""def toValue: ${fields.valueType} = ${TermName(className.toString)}.converter.convert(primitiveBits)""",
-                                      q"""override def toString = toValue.toString""")
-                  val companionBody = Seq(q"""import _root_.notastruct.model.BitConverters._""",
-                                          q"""private val converter = implicitly[_root_.notastruct.model.BitConverter[${fields.containingType}, ${fields.valueType}]]""",
-                                          q"""
-implicit object ${TermName(className.toString + "HasAttributes")} extends _root_.notastruct.model.PackableAttributes[$className] {
-  override def width: Int = $width
-}
-""",
-q"""
-implicit object ${TermName(className.toString + "IsPackable")} extends _root_.notastruct.model.Packable[$className, ${fields.valueType}, ${fields.containingType}] {
-  import notastruct.model._
-  override def minValue(implicit attributes: PackableAttributes[$className]) = 0
-  override def maxValue(implicit attributes: PackableAttributes[$className]) = ${fields.max}
-}
-""")
                   q"""
 class $className(val primitiveBits: ${fields.containingType}) extends AnyVal {
-  ..$classBody
+  def toValue: ${fields.valueType} =
+    _root_.notastruct.model.BitConverters.convert[${fields.containingType}, ${fields.valueType}](primitiveBits)
+  override def toString = toValue.toString
 }
 
 object $companionName {
-  ..$companionBody
+  implicit object ${TermName(className.toString + "HasAttributes")} extends _root_.notastruct.model.PackableAttributes[$className] {
+    override def width: Int = $width
+  }
+  implicit object ${TermName(className.toString + "IsPackable")} extends _root_.notastruct.model.Packable[$className, ${fields.valueType}, ${fields.containingType}] {
+    import notastruct.model._
+    override def minValue(implicit attributes: PackableAttributes[$className]) = 0
+    override def maxValue(implicit attributes: PackableAttributes[$className]) = ${fields.max}
+  }
 }
 """
                 }
@@ -194,27 +187,21 @@ class SignedImpl(val c: Context) {
               val companionName = TermName(className.toString)
               typeFields(width) match {
                 case Some(fields) => {
-                  val classBody = Seq(q"""def toValue: ${fields.containingType} = primitiveBits""",
-                                      q"""override def toString = toValue.toString""")
-                  val companionBody = Seq(q"""
-implicit object ${TermName(className.toString + "HasAttributes")} extends _root_.notastruct.model.PackableAttributes[$className] {
-  override def width: Int = $width
-}
-""",
-                                          q"""
-implicit object ${TermName(className.toString + "As" + fields.containingType + "Is" + fields.containingType + "Packable")} extends _root_.notastruct.model.Packable[$className, ${fields.containingType}, ${fields.containingType}] {
-  import notastruct.model._
-  override def minValue(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.min}
-  override def maxValue(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.max}
-}
-""")
                   q"""
 class $className(val primitiveBits: ${fields.containingType}) extends AnyVal {
-  ..$classBody
+  def toValue: ${fields.containingType} = primitiveBits
+  override def toString = toValue.toString
 }
 
 object $companionName {
-  ..$companionBody
+  implicit object ${TermName(className.toString + "HasAttributes")} extends _root_.notastruct.model.PackableAttributes[$className] {
+    override def width: Int = $width
+  }
+
+  implicit object ${TermName(className.toString + "As" + fields.containingType + "Is" + fields.containingType + "Packable")} extends _root_.notastruct.model.Packable[$className, ${fields.containingType}, ${fields.containingType}] {
+    override def minValue(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.min}
+    override def maxValue(implicit attributes: _root_.notastruct.model.PackableAttributes[$className]): ValueType = ${fields.max}
+  }
 }
 """
                 }
