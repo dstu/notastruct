@@ -3,6 +3,7 @@ package notastruct.util
 import bitsafe.convert._
 import bitsafe.expression._
 import notastruct.model._
+import scala.annotation.tailrec
 import scala.reflect.macros.blackbox.Context
 
 class StructBundle(val c: Context) {
@@ -31,47 +32,120 @@ class StructBundle(val c: Context) {
           c.abort(c.enclosingPosition, s"Struct class $className should have at least one parameter")
         } else if (!paramsTail.isEmpty) {
           c.abort(c.enclosingPosition, s"Struct class $className should have only one parameter list")
-        } else if (!classBody.isEmpty) {
-          c.abort(c.enclosingPosition, s"Struct class $className should not explicitly define any elements")
         } else {
           val wrapped = TermName("x")
-          val primitiveType = tq"Long"
-          val newClassBody = paramsHead.map(buildAccessor(wrapped, 0, _))
+          val fields = buildFields(paramsHead)
+          val model = StructType(className.toString, fields)
+          val primitiveType = typeForWidth(model.width)
+          val accessors = buildAccessors(wrapped, paramsHead, model)
+          val toStringFormat = paramsHead.map {
+              case ValDef(mods, fieldName, _, _) => fieldName.toString.replace("%", "%%") + "=%s"
+            } mkString(", ")
+          val toStringValues = paramsHead.map {
+              case ValDef(mods, fieldName, _, _) => fieldName
+            }
+
           val companionName = TermName(className.toString)
-          val newCompanionBody = Seq(q"")
+          val constructor = buildConstructor(className, primitiveType, paramsHead zip fields)
           q"""
 class $className(val $wrapped: $primitiveType) extends AnyVal {
-  ..$newClassBody
+  ..$accessors
+  override def toString = ${className.toString} + "(" + $toStringFormat.format(..$toStringValues) + ")"
+  ..$classBody
 }
 
 object $companionName {
-  ..$newCompanionBody
+  $constructor
 }
 """
         }
     }
 
-  def buildAccessor(wrapped: TermName, offset: Int, declaration: ValDef): c.Tree =
-      declaration match {
-        case ValDef(mods, fieldName, typeName, _) => {
-          val companion = TermName(typeName.toString)
-          q"""
-def $fieldName: $typeName = $companion.fromPacked($wrapped >>> $offset)
-"""
-        }
-        case _ =>
-          c.abort(declaration.pos, "Unrecognized declaration")
-      }
+  def typeForWidth(width: Int): TypeTag[_] =
+    if (width > 64) {
+      c.abort(c.enclosingPosition, s"Struct width of $width bits exceeds maximum of 64 bits")
+    } else if (width > 32) {
+      typeTag[Long]
+    } else if (width > 16) {
+      typeTag[Int]
+    } else if (width > 8) {
+      typeTag[Short]
+    } else {
+      typeTag[Byte]
+    }
 
-  def buildConstructor(className: TypeName, offsets: Map[String, Int], declarations: Seq[ValDef]): c.Tree = {
-    val fieldValues = declarations.map({
-                                         case ValDef(mods, argumentName, typeName, _) => {
-                                           val companionName = TermName(typeName.toString)
-                                             q"$companionName($argumentName).toPackedLong << ${offsets[argumentName]}"
-                                         }
-                                       }).reduce((l, r) => q"$l | $r")
+  def buildFields(declarations: Seq[ValDef]): Seq[FieldType] = {
+    @tailrec def computeOffsets(declarations: Seq[ValDef],
+                                offsets: Seq[(String, (Int, Int))],
+                                cumulativeOffset: Int): Seq[FieldType] =
+      declarations.headOption match {
+        case None => {
+          offsets.map {
+            case (name, (offset, width)) => FieldType(name=name,
+                                                      width=width,
+                                                      offset=cumulativeOffset - offset - width)
+          }
+        }
+        case Some(declaration) =>
+          declaration match {
+            case ValDef(mods, fieldName, typeName, _) => {
+              val width = c.eval(c.Expr[Int](q"_root_.notastruct.model.width[$typeName]"))
+              if (cumulativeOffset > 64) {
+                c.error(declaration.pos, s"Field $fieldName starts beyond 64-bit maximum struct width")
+              } else if (cumulativeOffset + width > 64) {
+                c.error(declaration.pos, s"Field $fieldName extends beyond 64-bit maximum struct width")
+              }
+              computeOffsets(declarations.tail,
+                             offsets :+ (fieldName.toString, (cumulativeOffset, width)),
+                             cumulativeOffset + width)
+            }
+            case _ => {
+              c.error(declaration.pos, "Unrecognized field declaration (expected: ValDef)")
+              computeOffsets(declarations.tail, offsets, cumulativeOffset)
+            }
+          }
+      }
+    computeOffsets(declarations, Seq.empty, 0)
+  }
+
+  def buildAccessors(wrapped: TermName, declarations: Seq[ValDef], model: StructType): Seq[c.Tree] = {
+    @tailrec def build(fields: Seq[(ValDef, FieldType)],
+                       accessors: Seq[c.Tree]): Seq[c.Tree] =
+        fields.headOption match {
+          case None => accessors
+          case Some((declaration, field)) => {
+            val valueType = tq"Long"
+            val mask = (-1L >> model.width - field.offset) << field.offset
+            val accessor = q"""
+def ${TermName(field.name)}: $valueType = {
+  import _root_.bitsafe.convert._
+  import _root_.bitsafe.expression._
+
+  new $valueType(bit[$valueType](($wrapped and $mask) rshift ${field.offset}))
+}
+"""
+            build(fields.tail, accessors :+ accessor)
+          }
+        }
+
+    build(declarations zip model.fields, Seq.empty)
+  }
+
+  def buildConstructor(className: TypeName, primitiveType: TypeTag[_], fields: Seq[(ValDef, FieldType)]): c.Tree = {
+    val declarations = fields.map(_._1)
+    val fieldValues = fields.map({
+                                   case (ValDef(_, fieldName, typeName, _), FieldType(_, width, offset)) => {
+                                     val companionName = TermName(typeName.toString)
+                                       q"bit[???]($fieldName.toValue) lshift $offset"
+                                   }
+                                 }).reduce((l, r) => q"$l or $r")
     q"""
-def apply(..$declarations): $className = new $className($fieldValues)
+def apply(..$declarations): $className = {
+  import _root_.bitsafe.convert._
+  import _root_.bitsafe.expression._
+
+  new $className(bit[???]($fieldValues))
+}
 """
   }
 }
