@@ -8,6 +8,8 @@ scalaVersion := "2.11.0"
 
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
 
+libraryDependencies += "notastruct" %% "struct-model" % version.value
+
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.0" cross CrossVersion.full)
 
 scalacOptions ++= Seq(

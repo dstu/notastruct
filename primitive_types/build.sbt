@@ -1,4 +1,6 @@
-name := "notastruct-primitives"
+organization := "notastruct"
+
+name := "primitive-types"
 
 version := "1.0.0-SNAPSHOT"
 

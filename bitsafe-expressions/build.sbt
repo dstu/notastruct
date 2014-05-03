@@ -1,16 +1,12 @@
-organization := "notastruct"
+organization := "bitsafe"
 
-name := "struct-macros"
+name := "expressions"
 
 version := "1.0.0-SNAPSHOT"
 
 scalaVersion := "2.11.0"
 
-libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
-
-libraryDependencies += "notastruct" %% "primitive-types" % version.value
-
-addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.0" cross CrossVersion.full)
+libraryDependencies += "bitsafe" %% "operations" % version.value
 
 scalacOptions ++= Seq(
     "-deprecation",
