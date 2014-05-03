@@ -172,15 +172,15 @@ of narrow primitive types is considered undesirable:
 
   // Desired behavior is achieved with some trickery involving
   // custom operator names
-  import bitsafe.operators._
-  import bitsafe.expressions._
+  import bitsafe.convert._
+  import bitsafe.expression._
   (-1 xor -1L) == -4294967296L
   // A safe conversion macro is also available
   val s: Short = -1
   bit[Int] { s } == 65535
 #+END_SRC
 
-The directories =bitwise-operations= and =bitwise-expressions=
-provide this functionality. They are sufficiently
-general-purpose that they are prime candidates for being
-factoring out into a separate repository.
+Modules in the directories =bitwise-convert= and
+=bitwise-expression= provide this functionality. They are
+sufficiently general-purpose that they are prime candidates for
+being factoring out into a separate repository.
