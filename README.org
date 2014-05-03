@@ -159,3 +159,28 @@ representations in mind:
    mapping between the containing representation and the
    low-order bytes of a wider type.
 
+* Safe bit manipulation
+For the purposes of this library, Scala's auto-promition
+of narrow primitive types is considered undesirable:
+
+#+BEGIN_SRC scala
+  // Undesirable behavior: bitwise representation of -1 is mangled
+  // when it is promoted to a Long
+  (-1 ^ -1L) == 0
+  // Casting doesn't help
+  (-1.asInstanceOf[Long] ^ -1L) == 0
+
+  // Desired behavior is achieved with some trickery involving
+  // custom operator names
+  import bitsafe.operators._
+  import bitsafe.expressions._
+  (-1 xor -1L) == -4294967296L
+  // A safe conversion macro is also available
+  val s: Short = -1
+  bit[Int] { s } == 65535
+#+END_SRC
+
+The directories =bitwise-operations= and =bitwise-expressions=
+provide this functionality. They are sufficiently
+general-purpose that they are prime candidates for being
+factoring out into a separate repository.
