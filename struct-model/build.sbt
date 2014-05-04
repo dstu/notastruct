@@ -6,6 +6,8 @@ version := "1.0.0-SNAPSHOT"
 
 scalaVersion := "2.11.0"
 
+libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
+
 scalacOptions ++= Seq(
     "-deprecation",
     "-unchecked",

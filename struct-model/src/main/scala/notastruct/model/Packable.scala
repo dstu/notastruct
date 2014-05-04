@@ -1,9 +1,13 @@
 package notastruct.model
 
-trait Packable[T, @specialized(Long, Float, Int, Short, Byte) V, @specialized(Long, Int, Short, Byte) P] {
-  type DispatchType = T
-  type ValueType = V
-  type PackedType = P
-  def minValue(implicit attributes: PackableAttributes[T]): V
-  def maxValue(implicit attributes: PackableAttributes[T]): V
+import scala.reflect.macros.blackbox.Context
+
+trait Packable[T] {
+  type ValueType
+  type ContainingType
+  def width: Int
+  def minValue: ValueType
+  def maxValue: ValueType
+  def pack(c: Context)(value: c.Expr[ValueType]): c.Expr[ContainingType]
+  def unpack(c: Context)(packed: c.Expr[ContainingType]): c.Expr[ValueType]
 }

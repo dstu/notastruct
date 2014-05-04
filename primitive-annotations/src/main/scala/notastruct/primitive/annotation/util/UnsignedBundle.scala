@@ -7,46 +7,76 @@ class UnsignedBundle(val c: Context) {
 
   val NAME_PATTERN = raw"u([1-9][0-9]*)".r
 
-  case class TypeFields(max: c.Tree,
-                        valueType: c.Tree,
-                        containingType: c.Tree)
+  case class TypeFields[T: c.TypeTag, C: c.TypeTag](max: c.Expr[T],
+                                                    pack: c.Tree,
+                                                    unpack: c.Tree) {
+    lazy val valueType = typeTag[T]
+    lazy val containingType = typeTag[C]
+  }
 
-  def typeFields(width: Int): Option[TypeFields] = {
+  def typeFields(width: Int): Option[TypeFields[_, _]] = {
     val max = (1L << width) - 1
-    val maskLong = (1L << width) - 1
-    val maskInt = (1 << width) - 1
-    if (width > 63) {
+    val mask = ~((-1L >>> width) << width)
+    if (width > 63 || width < 1) {
       None
-    } else if (width > 32) {
-      Some(TypeFields(max=q"$max",
-                      valueType=tq"Long",
-                      containingType=tq"Long"))
-    } else if (width == 32) {
-      Some(TypeFields(max=q"$max",
-                      valueType=tq"Long",
-                      containingType=tq"Int"))
-    } else if (width > 16) {
-      Some(TypeFields(max=q"${max.toInt}",
-                      valueType=tq"Int",
-                      containingType=tq"Int"))
-    } else if (width == 16) {
-      Some(TypeFields(max=q"${max.toInt}",
-                      valueType=tq"Int",
-                      containingType=tq"Short"))
-    } else if (width > 8) {
-      Some(TypeFields(max=q"${max.toShort}",
-                      valueType=tq"Short",
-                      containingType=tq"Short"))
-    } else if (width == 8) {
-      Some(TypeFields(max=q"${max.toShort}",
-                      valueType=tq"Short",
-                      containingType=tq"Byte"))
-    } else if (width > 1) {
-      Some(TypeFields(max=q"${max.toByte}",
-                      valueType=tq"Byte",
-                      containingType=tq"Byte"))
     } else {
-      None
+      Some(if (width > 32) {
+             TypeFields[Long, Long](max=c.Expr[Long](q"$max"),
+                                    pack = ???,//q"""
+//override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Long]) = c.Expr[Long](q"$$x && $mask")
+//""",
+                                    unpack = ???)//q"""
+//override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Long]) = x
+//""")
+           } else if (width == 32) {
+             TypeFields[Long, Int](max=c.Expr[Long](q"$max"),
+                                   pack = ???,//q"""
+////override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Long]) = c.Expr[Long](q"_root_.bitsafe.convert.bit[Int]($$x)")
+//""",
+                                   unpack = ???)//q"""
+// override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Int]) = c.Expr[Long](q"_root_.bitsafe.convert.bit[Long]($$x)")
+// """)
+           } else if (width > 16) {
+             TypeFields[Int, Int](max=c.Expr[Int](q"${max.toInt}"),
+                                  pack = ???,//q"""
+////override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Int]) = c.Expr[Int](q"_root_.bitsafe.convert.bit[Int]($$x && ${mask.toInt})")
+//""",
+                                  unpack = ???)//q"""
+// override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Int]) = x
+// """)
+           } else if (width == 16) {
+             TypeFields[Int, Short](max=c.Expr[Int](q"${max.toInt}"),
+                                    pack = ???,//q"""
+////override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Int]) = c.Expr[Short](q"_root_.bitsafe.convert.bit[Short]($$x && ${mask.toInt})")
+//""",
+                                    unpack = ???)//q"""
+// override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Short]) = c.Expr[Int](q"_root_.bitsafe.convert.bit[Int]($$x)")
+// """)
+           } else if (width > 8) {
+             TypeFields[Short, Short](max=c.Expr[Short](q"${max.toShort}"),
+                                      pack = ???,//q"""
+////override def pack(x: c.Expr[Short]) = c.Expr[Short](q"import _root_.bitsafe.expression._; _root_.bitsafe.convert.bit[Short]($$x and ${mask.toInt})")
+//""",
+                                      unpack = ???)//q"""
+// override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Short]) = x
+// """)
+           } else if (width == 8) {
+             TypeFields[Short, Byte](max=c.Expr[Short](q"${max.toShort}"),
+                                     pack = ???,//q"""
+////override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Short]) = c.Expr[Byte](q"_root_.bitsafe.convert.bit[Byte]($$x)")
+//""",
+                                     unpack = ???)//q"""
+// override def unpack(x: c.Expr[Byte]) = c.Expr[Short](q"_root_.bitsafe.convert.bit[Short]($$x)")
+// """)
+           } else {
+             TypeFields(max=c.Expr[Byte](q"${max.toByte}"),
+                        pack = ???,//q"""
+////override def pack(c: _root_.scala.reflect.macros.blackbox.Content)(x: c.Expr[Byte]) = c.Expr[Byte](q"import _root_.bitsafe.expression._; _root_.bitsafe.convert.bit[Byte]($$x and ${mask.toInt})")
+//""",
+                        unpack = ???)//q"""
+// override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Byte]) = x
+// """)
+           })
     }
   }
 
@@ -54,7 +84,7 @@ class UnsignedBundle(val c: Context) {
     annottees.map(_.tree).toList match {
       case (classDef: ClassDef) :: Nil => {
         val d = buildDeclarations(classDef)
-        // println(d)
+        println(d)
         c.Expr(d)
       }
       case (classDef: ClassDef) :: (companionDef: ModuleDef) :: Nil =>
@@ -79,6 +109,7 @@ class UnsignedBundle(val c: Context) {
                   q"${-1 >>> (32 - width)}"
                 }
               typeFields(width) match {
+
                 case Some(fields) => {
                   q"""
 class $className(val primitiveBits: ${fields.containingType}) extends AnyVal {
@@ -91,16 +122,23 @@ object $companionName {
   import bitsafe.ops._
   import bitsafe.expression._
 
+  final val Width = $width
+  final val MinValue: ${fields.valueType} = 0
+  final val MaxValue = ${fields.max}
+
   def apply(value: ${fields.valueType}): $className =
     new $className(bit[${fields.containingType}](value and $mask))
 
-  implicit object ${TermName(className.toString + "HasAttributes")} extends _root_.notastruct.model.PackableAttributes[$className] {
+  implicit object ${TermName(className.toString + "IsPackable")} extends _root_.notastruct.model.Packable[$className] {
+    override type ValueType = ${fields.valueType}
+    override type ContainingType = ${fields.valueType}
+
     override def width: Int = $width
-  }
-  implicit object ${TermName(className.toString + "IsPackable")} extends _root_.notastruct.model.Packable[$className, ${fields.valueType}, ${fields.containingType}] {
-    import notastruct.model._
-    override def minValue(implicit attributes: PackableAttributes[$className]) = 0
-    override def maxValue(implicit attributes: PackableAttributes[$className]) = ${fields.max}
+    override def minValue = 0.asInstanceOf[ValueType]
+    override def maxValue = ${fields.max}
+
+    ${fields.pack}
+    ${fields.unpack}
   }
 }
 """
