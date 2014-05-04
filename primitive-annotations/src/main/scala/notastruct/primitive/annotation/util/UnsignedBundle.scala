@@ -22,60 +22,95 @@ class UnsignedBundle(val c: Context) {
     } else {
       Some(if (width > 32) {
              TypeFields[Long, Long](max=c.Expr[Long](q"$max"),
-                                    pack = ???,//q"""
-//override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Long]) = c.Expr[Long](q"$$x && $mask")
-//""",
-                                    unpack = ???)//q"""
-//override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Long]) = x
-//""")
+                                    pack = q"""
+override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Long]) = {
+  import c.universe._
+  val mask = $mask
+  c.Expr[Long](q"$$x && $$mask")
+}
+""",
+                                    unpack = q"""
+override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Long]) = x
+""")
            } else if (width == 32) {
              TypeFields[Long, Int](max=c.Expr[Long](q"$max"),
-                                   pack = ???,//q"""
-////override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Long]) = c.Expr[Long](q"_root_.bitsafe.convert.bit[Int]($$x)")
-//""",
-                                   unpack = ???)//q"""
-// override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Int]) = c.Expr[Long](q"_root_.bitsafe.convert.bit[Long]($$x)")
-// """)
+                                   pack = q"""
+override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Long]) = {
+  import c.universe._
+  c.Expr[Int](q"_root_.bitsafe.convert.bit[Int]($$x)")
+}
+""",
+                                   unpack = q"""
+override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Int]) = {
+  import c.universe._
+  c.Expr[Long](q"_root_.bitsafe.convert.bit[Long]($$x)")
+}
+""")
            } else if (width > 16) {
              TypeFields[Int, Int](max=c.Expr[Int](q"${max.toInt}"),
-                                  pack = ???,//q"""
-////override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Int]) = c.Expr[Int](q"_root_.bitsafe.convert.bit[Int]($$x && ${mask.toInt})")
-//""",
-                                  unpack = ???)//q"""
-// override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Int]) = x
-// """)
+                                  pack = q"""
+override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Int]) = {
+  import c.universe._
+  val mask = ${mask.toInt}
+  c.Expr[Int](q"_root_.bitsafe.convert.bit[Int]($$x && $$mask)")
+}
+""",
+                                  unpack = q"""
+override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Int]) = x
+""")
            } else if (width == 16) {
              TypeFields[Int, Short](max=c.Expr[Int](q"${max.toInt}"),
-                                    pack = ???,//q"""
-////override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Int]) = c.Expr[Short](q"_root_.bitsafe.convert.bit[Short]($$x && ${mask.toInt})")
-//""",
-                                    unpack = ???)//q"""
-// override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Short]) = c.Expr[Int](q"_root_.bitsafe.convert.bit[Int]($$x)")
-// """)
+                                    pack = q"""
+override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Int]) = {
+  import c.universe._
+  val mask = ${mask.toInt}
+  c.Expr[Short](q"_root_.bitsafe.convert.bit[Short]($$x && $$mask)")
+}
+""",
+                                    unpack = q"""
+override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Short]) = {
+  import c.universe._
+  c.Expr[Int](q"_root_.bitsafe.convert.bit[Int]($$x)")
+}
+""")
            } else if (width > 8) {
              TypeFields[Short, Short](max=c.Expr[Short](q"${max.toShort}"),
-                                      pack = ???,//q"""
-////override def pack(x: c.Expr[Short]) = c.Expr[Short](q"import _root_.bitsafe.expression._; _root_.bitsafe.convert.bit[Short]($$x and ${mask.toInt})")
-//""",
-                                      unpack = ???)//q"""
-// override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Short]) = x
-// """)
+                                      pack = q"""
+override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Short]) = {
+  import c.universe._
+  val mask = ${mask.toInt}
+  c.Expr[Short](q"import _root_.bitsafe.expression._; _root_.bitsafe.convert.bit[Short]($$x and $$mask)")
+}
+""",
+                                      unpack = q"""
+override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Short]) = x
+""")
            } else if (width == 8) {
              TypeFields[Short, Byte](max=c.Expr[Short](q"${max.toShort}"),
-                                     pack = ???,//q"""
-////override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Short]) = c.Expr[Byte](q"_root_.bitsafe.convert.bit[Byte]($$x)")
-//""",
-                                     unpack = ???)//q"""
-// override def unpack(x: c.Expr[Byte]) = c.Expr[Short](q"_root_.bitsafe.convert.bit[Short]($$x)")
-// """)
+                                     pack = q"""
+override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Short]) = {
+  import c.universe._
+  c.Expr[Byte](q"_root_.bitsafe.convert.bit[Byte]($$x)")
+}
+""",
+                                     unpack = q"""
+override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Byte]) = {
+  import c.universe._
+  c.Expr[Short](q"_root_.bitsafe.convert.bit[Short]($$x)")
+}
+""")
            } else {
-             TypeFields(max=c.Expr[Byte](q"${max.toByte}"),
-                        pack = ???,//q"""
-////override def pack(c: _root_.scala.reflect.macros.blackbox.Content)(x: c.Expr[Byte]) = c.Expr[Byte](q"import _root_.bitsafe.expression._; _root_.bitsafe.convert.bit[Byte]($$x and ${mask.toInt})")
-//""",
-                        unpack = ???)//q"""
-// override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Byte]) = x
-// """)
+             TypeFields[Byte, Byte](max=c.Expr[Byte](q"${max.toByte}"),
+                                    pack = q"""
+override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Byte]) = {
+  import c.universe._
+  val mask = ${mask.toInt}
+  c.Expr[Byte](q"import _root_.bitsafe.expression._; _root_.bitsafe.convert.bit[Byte]($$x and $$mask)")
+}
+""",
+                                    unpack = q"""
+override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(x: c.Expr[Byte]) = x
+""")
            })
     }
   }
@@ -84,7 +119,7 @@ class UnsignedBundle(val c: Context) {
     annottees.map(_.tree).toList match {
       case (classDef: ClassDef) :: Nil => {
         val d = buildDeclarations(classDef)
-        println(d)
+        // println(d)
         c.Expr(d)
       }
       case (classDef: ClassDef) :: (companionDef: ModuleDef) :: Nil =>
@@ -122,20 +157,18 @@ object $companionName {
   import bitsafe.ops._
   import bitsafe.expression._
 
-  final val Width = $width
-  final val MinValue: ${fields.valueType} = 0
-  final val MaxValue = ${fields.max}
-
   def apply(value: ${fields.valueType}): $className =
     new $className(bit[${fields.containingType}](value and $mask))
 
   implicit object ${TermName(className.toString + "IsPackable")} extends _root_.notastruct.model.Packable[$className] {
     override type ValueType = ${fields.valueType}
-    override type ContainingType = ${fields.valueType}
+    override type ContainingType = ${fields.containingType}
 
     override def width: Int = $width
     override def minValue = 0.asInstanceOf[ValueType]
     override def maxValue = ${fields.max}
+    override def containingType(c: _root_.scala.reflect.macros.blackbox.Context) = c.typeTag[${fields.containingType}]
+    override def valueType(c: _root_.scala.reflect.macros.blackbox.Context) = c.typeTag[${fields.valueType}]
 
     ${fields.pack}
     ${fields.unpack}

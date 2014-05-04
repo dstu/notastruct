@@ -4,10 +4,21 @@ import scala.reflect.macros.blackbox.Context
 
 trait Packable[T] {
   type ValueType
-  type ContainingType
+  type PackedType
+
   def width: Int
   def minValue: ValueType
   def maxValue: ValueType
-  def pack(c: Context)(value: c.Expr[ValueType]): c.Expr[ContainingType]
-  def unpack(c: Context)(packed: c.Expr[ContainingType]): c.Expr[ValueType]
+
+  def valueType(c: Context): c.TypeTag[ValueType]
+  def packedType(c: Context): c.TypeTag[PackedType]
+
+  def wrap(c: Context)(t: c.Expr[ValueType]): c.Expr[T]
+  def unwrap(c: Context)(t: c.Expr[T]): c.Expr[ValueType]
+
+  def pack(c: Context)(t: c.Expr[T]): c.Expr[PackedType]
+  def unpack(c: Context)(packed: c.Expr[PackedType]): c.Expr[T]
+
+  def packValue(c: Context)(t: c.Expr[ValueType]): c.Expr[PackedType]
+  def unpackValue(c: Context)(t: c.Expr[PackedType]): c.Expr[ValueType]
 }

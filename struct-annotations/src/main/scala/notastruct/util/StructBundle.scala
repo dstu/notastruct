@@ -118,7 +118,7 @@ object $companionName {
         case Some(declaration) =>
           declaration match {
             case ValDef(mods, fieldName, typeName, _) => {
-              packableAttributes(typeName).flatMap(_.width) match {
+              packable(typeName).map(_.width) match {
                 case None => {
                   c.error(declaration.pos, s"Unable to infer an implicit instance of notastruct.model.Packable[$typeName]")
                   computeOffsets(declarations.tail, offsets, cumulativeOffset)
@@ -151,18 +151,32 @@ object $companionName {
           case Some((declaration @ ValDef(_, _, typeName, _), FieldType(fieldName, width, offset))) => {
             val mask = (-1L >> offset) << offset
             widthToPrimitiveType(width) match {
-              case None =>
-                c.abort(declaration.pos, s"Unable to discern underlying storage type for field of type $typeName")
+              case None => {
+                c.error(declaration.pos, s"Unable to discern underlying storage type for field of type $typeName")
+                build(fields.tail, accessors)
+              }
               case Some(containingType) => {
-                val accessor = q"""
-def ${TermName(fieldName)}: $typeName = {
+                packable(typeName) match {
+                  case None => {
+                    c.error(declaration.pos,
+                            s"Unable to locate an implicit value of type notastruct.model.Packable[$typeName]")
+                    build(fields.tail, accessors)
+                  }
+                  case Some(packable) => {
+                    val packedData = q"""
+{ 
   import _root_.bitsafe.convert._
   import _root_.bitsafe.expression._
-
-  new $typeName(bit[$containingType](($wrapped and $mask) rshift $offset))
+  bit[${packable.containingType(c)}](($wrapped and $mask) rshift $offset)
 }
 """
-                build(fields.tail, accessors :+ accessor)
+                    val unpackedData = packable.unpack(c)(c.Expr[packable.ContainingType](packedData))
+                    val accessor = q"""
+def ${TermName(fieldName)}: $typeName = new $typeName($unpackedData)
+"""
+                    build(fields.tail, accessors :+ accessor)
+                  }
+                }
               }
             }
           }
@@ -173,12 +187,13 @@ def ${TermName(fieldName)}: $typeName = {
 
   def buildConstructor(className: TypeName, primitiveType: TypeTag[_], fields: Seq[(ValDef, FieldType)]): c.Tree = {
     val declarations = fields.map(_._1)
-    val fieldValues = fields.map({
-                                   case (ValDef(_, fieldName, typeName, _), FieldType(_, width, offset)) => {
-                                     val companionName = TermName(typeName.toString)
-                                       q"bit[$primitiveType]($fieldName.toValue) lshift $offset"
-                                   }
-                                 }).reduce((l, r) => q"$l or $r")
+    val fieldValues = fields.map {
+        case (ValDef(_, fieldName, typeName, _), FieldType(_, width, offset)) => {
+          val packableInstance = packable(typeName).get
+          val packedData = packableInstance.pack(c)(c.Expr[packableInstance.ValueType](q"${fieldName}.toValue"))
+          q"bit[$primitiveType]($packedData lshift $offset)"
+        }
+      }.reduce((l, r) => q"$l or $r")
     q"""
 def apply(..$declarations): $className = {
   import _root_.bitsafe.convert._

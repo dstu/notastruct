@@ -11,23 +11,20 @@ class SignedBundle(val c: Context) {
   case class TypeFields[T: c.TypeTag](min: c.Expr[T], max: c.Expr[T], mask: c.Expr[T]) {
     lazy val valueType = typeTag[T]
     lazy val pack = q"""
-override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(value: c.Expr[ValueType]) = {
+override def pack(c: _root_.scala.reflect.macros.blackbox.Context)(value: c.Expr[$valueType]) = {
   import c.universe._
-  c.Expr[ValueType](reify {
-    import bitsafe.convert._
-    import bitsafe.expression._
-    bit[$valueType]((value - $min) and $mask)
-  })
+  val valueType = TypeName(${valueType.toString})
+  val min = $min
+  val mask = $mask
+  c.Expr[$valueType](q"import bitsafe.convert._; import bitsafe.expression._; bit[$$valueType](($$value - $$min) and $$mask)")
 }
 """
     lazy val unpack = q"""
-override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(value: c.Expr[ValueType]) = {
+override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(value: c.Expr[$valueType]) = {
   import c.universe._
-  c.Expr[ValueType](reify {
-    import bitsafe.convert._
-    import bitsafe.expression._
-    bit[$valueType](value - min)
-  })
+  val valueType = TypeName(${valueType.toString})
+  val min = $min
+  c.Expr[$valueType](q"import bitsafe.convert._; import bitsafe.expression._; bit[$$valueType]($$value - $$min)")
 }
 """
   }
@@ -60,7 +57,7 @@ override def unpack(c: _root_.scala.reflect.macros.blackbox.Context)(value: c.Ex
     annottees.map(_.tree).toList match {
       case (classDef: ClassDef) :: Nil => {
         val d = buildDeclarations(classDef)
-        println(d)
+        // println(d)
         c.Expr(d)
       }
       case (classDef: ClassDef) :: (companionDef: ModuleDef) :: Nil =>
@@ -92,7 +89,7 @@ object $companionName {
   import bitsafe.convert._
   import bitsafe.expression._
 
-  def apply(value: ${fields.valueType}): $className =   
+  def apply(value: ${fields.valueType}): $className =
     new $className(bit[${fields.valueType}]((value - ${fields.min}) and ${fields.mask}))
 
   implicit object ${TermName(className.toString + "IsPackable")} extends _root_.notastruct.model.Packable[$className] {
@@ -102,6 +99,8 @@ object $companionName {
     override def width = $width
     override def minValue = ${fields.min}
     override def maxValue = ${fields.max}
+    override def containingType(c: _root_.scala.reflect.macros.blackbox.Context) = c.typeTag[${fields.valueType}]
+    override def valueType(c: _root_.scala.reflect.macros.blackbox.Context) = c.typeTag[${fields.valueType}]
 
     ${fields.pack}
     ${fields.unpack}
